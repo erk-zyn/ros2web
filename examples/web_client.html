@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ROS话题桥接 - Web客户端示例</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        h1, h2 {
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        
+        .status.connected {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .control-group {
+            margin: 15px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #fafafa;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        
+        input, select, button {
+            padding: 8px 12px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        button {
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            border: none;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #0056b3;
+        }
+        
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .log-container {
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            background-color: #f8f9fa;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        
+        .log-entry {
+            margin: 2px 0;
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+        
+        .log-info { background-color: #d1ecf1; color: #0c5460; }
+        .log-error { background-color: #f8d7da; color: #721c24; }
+        .log-success { background-color: #d4edda; color: #155724; }
+        .log-warning { background-color: #fff3cd; color: #856404; }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .message-data {
+            background-color: #e9ecef;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 5px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 ROS话题桥接 - Web客户端示例</h1>
+        
+        <!-- 连接状态 -->
+        <div id="connectionStatus" class="status disconnected">
+            未连接到WebSocket服务器
+        </div>
+        
+        <!-- 连接控制 -->
+        <div class="control-group">
+            <h2>连接设置</h2>
+            <label for="wsUrl">WebSocket地址:</label>
+            <input type="text" id="wsUrl" value="ws://localhost:8765" style="width: 300px;">
+            <button id="connectBtn" onclick="toggleConnection()">连接</button>
+            <button onclick="clearLog()">清空日志</button>
+        </div>
+    </div>
+    
+    <div class="grid">
+        <!-- 话题订阅 -->
+        <div class="container">
+            <h2>📡 话题订阅</h2>
+            <div class="control-group">
+                <label for="subTopic">话题名称:</label>
+                <input type="text" id="subTopic" value="/cmd_vel" placeholder="/topic_name">
+                
+                <label for="subMsgType">消息类型:</label>
+                <select id="subMsgType">
+                    <option value="geometry_msgs/Twist">geometry_msgs/Twist</option>
+                    <option value="std_msgs/String">std_msgs/String</option>
+                    <option value="std_msgs/Int32">std_msgs/Int32</option>
+                    <option value="std_msgs/Float32">std_msgs/Float32</option>
+                    <option value="sensor_msgs/LaserScan">sensor_msgs/LaserScan</option>
+                    <option value="nav_msgs/OccupancyGrid">nav_msgs/OccupancyGrid</option>
+                </select>
+                
+                <div>
+                    <button onclick="subscribeTopic()" id="subscribeBtn" disabled>订阅话题</button>
+                    <button onclick="unsubscribeTopic()" id="unsubscribeBtn" disabled>取消订阅</button>
+                    <button onclick="getTopicsList()" id="getTopicsBtn" disabled>获取话题列表</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 消息发布 -->
+        <div class="container">
+            <h2>📤 消息发布</h2>
+            <div class="control-group">
+                <label for="pubTopic">话题名称:</label>
+                <input type="text" id="pubTopic" value="/cmd_vel" placeholder="/topic_name">
+                
+                <label for="pubMsgType">消息类型:</label>
+                <select id="pubMsgType" onchange="updateMessageTemplate()">
+                    <option value="geometry_msgs/Twist">geometry_msgs/Twist</option>
+                    <option value="std_msgs/String">std_msgs/String</option>
+                    <option value="std_msgs/Int32">std_msgs/Int32</option>
+                    <option value="std_msgs/Float32">std_msgs/Float32</option>
+                    <option value="geometry_msgs/Point">geometry_msgs/Point</option>
+                </select>
+                
+                <label for="messageData">消息数据 (JSON格式):</label>
+                <textarea id="messageData" rows="6" style="width: 100%; font-family: 'Courier New', monospace;">
+{
+  "linear": {
+    "x": 1.0,
+    "y": 0.0,
+    "z": 0.0
+  },
+  "angular": {
+    "x": 0.0,
+    "y": 0.0,
+    "z": 0.5
+  }
+}</textarea>
+                
+                <div>
+                    <button onclick="publishMessage()" id="publishBtn" disabled>发布消息</button>
+                    <button onclick="sendHeartbeat()" id="heartbeatBtn" disabled>发送心跳</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 消息日志 -->
+    <div class="container">
+        <h2>📋 消息日志</h2>
+        <div id="logContainer" class="log-container"></div>
+    </div>
+
+    <script>
+        let ws = null;
+        let isConnected = false;
+        let reconnectAttempts = 0;
+        const maxReconnectAttempts = 5;
+        const reconnectInterval = 3000;
+
+        // 消息模板
+        const messageTemplates = {
+            'geometry_msgs/Twist': {
+                "linear": { "x": 1.0, "y": 0.0, "z": 0.0 },
+                "angular": { "x": 0.0, "y": 0.0, "z": 0.5 }
+            },
+            'std_msgs/String': {
+                "data": "Hello ROS!"
+            },
+            'std_msgs/Int32': {
+                "data": 42
+            },
+            'std_msgs/Float32': {
+                "data": 3.14
+            },
+            'geometry_msgs/Point': {
+                "x": 1.0,
+                "y": 2.0,
+                "z": 3.0
+            }
+        };
+
+        function log(message, type = 'info') {
+            const logContainer = document.getElementById('logContainer');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-${type}`;
+            logEntry.innerHTML = `[${timestamp}] ${message}`;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function updateConnectionStatus(connected) {
+            const statusElement = document.getElementById('connectionStatus');
+            const connectBtn = document.getElementById('connectBtn');
+            const buttons = ['subscribeBtn', 'unsubscribeBtn', 'publishBtn', 'heartbeatBtn', 'getTopicsBtn'];
+            
+            isConnected = connected;
+            
+            if (connected) {
+                statusElement.textContent = '✅ 已连接到WebSocket服务器';
+                statusElement.className = 'status connected';
+                connectBtn.textContent = '断开连接';
+                buttons.forEach(id => document.getElementById(id).disabled = false);
+            } else {
+                statusElement.textContent = '❌ 未连接到WebSocket服务器';
+                statusElement.className = 'status disconnected';
+                connectBtn.textContent = '连接';
+                buttons.forEach(id => document.getElementById(id).disabled = true);
+            }
+        }
+
+        function connect() {
+            const url = document.getElementById('wsUrl').value;
+            
+            try {
+                ws = new WebSocket(url);
+                
+                ws.onopen = function(event) {
+                    log('WebSocket连接已建立', 'success');
+                    updateConnectionStatus(true);
+                    reconnectAttempts = 0;
+                };
+                
+                ws.onmessage = function(event) {
+                    try {
+                        const message = JSON.parse(event.data);
+                        handleMessage(message);
+                    } catch (e) {
+                        log(`解析消息失败: ${e.message}`, 'error');
+                    }
+                };
+                
+                ws.onclose = function(event) {
+                    log(`WebSocket连接已关闭 (代码: ${event.code})`, 'warning');
+                    updateConnectionStatus(false);
+                    
+                    // 自动重连
+                    if (reconnectAttempts < maxReconnectAttempts) {
+                        setTimeout(() => {
+                            reconnectAttempts++;
+                            log(`尝试重新连接 (${reconnectAttempts}/${maxReconnectAttempts})`, 'info');
+                            connect();
+                        }, reconnectInterval);
+                    }
+                };
+                
+                ws.onerror = function(error) {
+                    log(`WebSocket错误: ${error}`, 'error');
+                };
+                
+            } catch (e) {
+                log(`连接失败: ${e.message}`, 'error');
+            }
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+            updateConnectionStatus(false);
+        }
+
+        function toggleConnection() {
+            if (isConnected) {
+                disconnect();
+            } else {
+                connect();
+            }
+        }
+
+        function handleMessage(message) {
+            switch (message.type) {
+                case 'welcome':
+                    log(`收到欢迎消息: ${message.message}`, 'success');
+                    log(`支持的消息类型: ${message.supported_message_types.join(', ')}`, 'info');
+                    break;
+                    
+                case 'topic_message':
+                    log(`📨 收到话题消息 [${message.topic}]`, 'info');
+                    const dataDiv = document.createElement('div');
+                    dataDiv.className = 'message-data';
+                    dataDiv.textContent = JSON.stringify(message.data, null, 2);
+                    document.getElementById('logContainer').appendChild(dataDiv);
+                    document.getElementById('logContainer').scrollTop = document.getElementById('logContainer').scrollHeight;
+                    break;
+                    
+                case 'subscribe_response':
+                    if (message.success) {
+                        log(`✅ 成功订阅话题: ${message.topic}`, 'success');
+                    } else {
+                        log(`❌ 订阅话题失败: ${message.topic}`, 'error');
+                    }
+                    break;
+                    
+                case 'unsubscribe_response':
+                    if (message.success) {
+                        log(`✅ 成功取消订阅话题: ${message.topic}`, 'success');
+                    } else {
+                        log(`❌ 取消订阅话题失败: ${message.topic}`, 'error');
+                    }
+                    break;
+                    
+                case 'publish_response':
+                    if (message.success) {
+                        log(`✅ 成功发布消息到话题: ${message.topic}`, 'success');
+                    } else {
+                        log(`❌ 发布消息失败: ${message.topic}`, 'error');
+                    }
+                    break;
+                    
+                case 'topics_list':
+                    log(`📋 已订阅话题: ${message.subscribed_topics.join(', ') || '无'}`, 'info');
+                    log(`📋 已发布话题: ${message.published_topics.join(', ') || '无'}`, 'info');
+                    break;
+                    
+                case 'heartbeat':
+                    log('💓 收到心跳消息', 'info');
+                    break;
+                    
+                case 'pong':
+                    log('🏓 收到Pong响应', 'success');
+                    break;
+                    
+                case 'error':
+                    log(`❌ 服务器错误: ${message.message}`, 'error');
+                    break;
+                    
+                default:
+                    log(`收到未知消息类型: ${message.type}`, 'warning');
+                    log(JSON.stringify(message, null, 2), 'info');
+            }
+        }
+
+        function subscribeTopic() {
+            const topic = document.getElementById('subTopic').value;
+            const messageType = document.getElementById('subMsgType').value;
+            
+            if (!topic || !messageType) {
+                log('请填写话题名称和消息类型', 'error');
+                return;
+            }
+            
+            const message = {
+                type: 'subscribe',
+                topic: topic,
+                message_type: messageType
+            };
+            
+            sendMessage(message);
+            log(`📡 发送订阅请求: ${topic} (${messageType})`, 'info');
+        }
+
+        function unsubscribeTopic() {
+            const topic = document.getElementById('subTopic').value;
+            
+            if (!topic) {
+                log('请填写话题名称', 'error');
+                return;
+            }
+            
+            const message = {
+                type: 'unsubscribe',
+                topic: topic
+            };
+            
+            sendMessage(message);
+            log(`📡 发送取消订阅请求: ${topic}`, 'info');
+        }
+
+        function publishMessage() {
+            const topic = document.getElementById('pubTopic').value;
+            const messageType = document.getElementById('pubMsgType').value;
+            const dataText = document.getElementById('messageData').value;
+            
+            if (!topic || !messageType || !dataText) {
+                log('请填写所有必要字段', 'error');
+                return;
+            }
+            
+            try {
+                const data = JSON.parse(dataText);
+                const message = {
+                    type: 'publish',
+                    topic: topic,
+                    message_type: messageType,
+                    data: data
+                };
+                
+                sendMessage(message);
+                log(`📤 发送发布请求: ${topic} (${messageType})`, 'info');
+            } catch (e) {
+                log(`JSON格式错误: ${e.message}`, 'error');
+            }
+        }
+
+        function sendHeartbeat() {
+            const message = { type: 'ping' };
+            sendMessage(message);
+            log('🏓 发送心跳检测', 'info');
+        }
+
+        function getTopicsList() {
+            const message = { type: 'get_topics' };
+            sendMessage(message);
+            log('📋 请求话题列表', 'info');
+        }
+
+        function sendMessage(message) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify(message));
+            } else {
+                log('WebSocket未连接', 'error');
+            }
+        }
+
+        function updateMessageTemplate() {
+            const messageType = document.getElementById('pubMsgType').value;
+            const template = messageTemplates[messageType];
+            
+            if (template) {
+                document.getElementById('messageData').value = JSON.stringify(template, null, 2);
+            }
+        }
+
+        function clearLog() {
+            document.getElementById('logContainer').innerHTML = '';
+        }
+
+        // 页面加载完成后初始化
+        window.onload = function() {
+            updateConnectionStatus(false);
+            updateMessageTemplate();
+            log('🚀 Web客户端已加载，请点击连接按钮开始', 'info');
+        };
+
+        // 页面关闭时断开连接
+        window.onbeforeunload = function() {
+            if (ws) {
+                ws.close();
+            }
+        };
+    </script>
+</body>
+</html>

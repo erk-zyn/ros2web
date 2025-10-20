@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<launch>
+  <!-- ROS话题桥接节点启动文件 -->
+  
+  <!-- 节点参数配置 -->
+  <arg name="node_name" default="topic_bridge_node" />
+  <arg name="websocket_host" default="0.0.0.0" />
+  <arg name="websocket_port" default="8765" />
+  <arg name="heartbeat_interval" default="30" />
+  <arg name="log_level" default="info" />
+  
+  <!-- 启动话题桥接节点 -->
+  <node name="$(arg node_name)" 
+        pkg="topic_bridge" 
+        type="topic_bridge_node.py" 
+        output="screen"
+        respawn="true"
+        respawn_delay="5">
+    
+    <!-- 设置节点参数 -->
+    <param name="websocket_host" value="$(arg websocket_host)" />
+    <param name="websocket_port" value="$(arg websocket_port)" />
+    <param name="heartbeat_interval" value="$(arg heartbeat_interval)" />
+    <param name="log_level" value="$(arg log_level)" />
+    
+    <!-- 重映射话题（如果需要） -->
+    <!-- <remap from="/cmd_vel" to="/robot/cmd_vel" /> -->
+    
+  </node>
+  
+  <!-- 可选：启动其他相关节点 -->
+  <!-- 
+  <include file="$(find your_robot_package)/launch/robot.launch" />
+  -->
+  
+</launch>
