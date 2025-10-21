@@ -10,7 +10,9 @@ ROS话题桥接节点 - 实现ROS系统与Web端的双向通信
 4. 心跳检测和自动重连机制
 5. 完善的异常处理和日志记录
 
-作者: ROS开发团队
+作者: erk-zyn
+邮箱: 1219534643@qq.com
+项目主页: https://github.com/erk-zyn/ros2web
 版本: 1.0.0
 """
 
@@ -627,6 +629,10 @@ class TopicBridgeNode:
 def main():
     """主函数"""
     try:
+        logger.info("=== ROS话题桥接节点启动 ===")
+        logger.info("作者: erk-zyn")
+        logger.info("项目主页: https://github.com/erk-zyn/ros2web")
+        
         # 创建话题桥接节点
         bridge_node = TopicBridgeNode("topic_bridge_node")
         
@@ -635,6 +641,8 @@ def main():
         
         # 启动WebSocket服务器
         bridge_node.start_websocket_server(host="0.0.0.0", port=8765)
+        
+        logger.info("=== 话题桥接节点启动成功 ===")
         
         # 运行节点
         bridge_node.run()

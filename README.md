@@ -29,7 +29,7 @@
 
 ```bash
 cd ~/catkin_ws/src
-git clone https://github.com/your-username/topic_bridge.git
+git clone https://github.com/erk-zyn/ros2web.git topic_bridge
 cd topic_bridge
 ```
 
@@ -74,6 +74,29 @@ roslaunch topic_bridge topic_bridge.launch
 ```
 
 ### 3. 连接Web客户端
+
+#### 方法一：使用完整的Web客户端示例
+
+项目提供了一个完整的Web客户端示例文件 `examples/web_client.html`，包含以下功能：
+
+- **连接管理**：WebSocket连接/断开，自动重连机制
+- **话题订阅**：支持多种消息类型的话题订阅和取消订阅
+- **消息发布**：可视化界面发布ROS消息到指定话题
+- **实时日志**：显示所有WebSocket通信和消息接收日志
+- **话题列表**：获取当前可用的ROS话题列表
+- **消息模板**：预设常用消息类型的JSON模板
+
+**使用方法：**
+1. 确保topic_bridge节点正在运行
+2. 用浏览器打开 `examples/web_client.html` 文件
+3. 点击"连接"按钮连接到WebSocket服务器
+4. 使用界面进行话题订阅、消息发布等操作
+
+**界面预览：**
+![Web客户端连接界面1](docs/images/Snipaste_2025-10-21_10-17-05.jpg)
+![Web客户端连接界面2](docs/images/Snipaste_2025-10-21_10-17-53.jpg)
+
+#### 方法二：使用JavaScript代码
 
 在浏览器中打开开发者工具，使用以下JavaScript代码连接：
 
@@ -320,9 +343,10 @@ rostopic echo /cmd_vel
 
 ## 📞 联系我们
 
-- **项目主页**: https://github.com/your-username/topic_bridge
-- **问题反馈**: https://github.com/your-username/topic_bridge/issues
-- **邮箱**: your-email@example.com
+- **项目主页**: https://github.com/erk-zyn/ros2web
+- **问题反馈**: https://github.com/erk-zyn/ros2web/issues
+- **作者**: erk-zyn
+- **邮箱**: 1219534643@qq.com
 
 ## 🔄 更新日志
 

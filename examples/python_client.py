@@ -6,6 +6,10 @@ ROS话题桥接节点 - Python客户端示例
 该示例展示如何使用Python客户端与ROS话题桥接节点进行通信，
 包括订阅话题、发布消息、心跳检测等功能。
 
+作者: erk-zyn
+邮箱: 1219534643@qq.com
+项目主页: https://github.com/erk-zyn/ros2web
+
 使用方法:
     python3 python_client.py
 
