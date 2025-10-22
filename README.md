@@ -135,6 +135,8 @@ ws.onmessage = function(event) {
 | Quaternion | geometry_msgs | 四元数 |
 | LaserScan | sensor_msgs | 激光雷达数据 |
 | Image | sensor_msgs | 图像数据 |
+| Odometry | nav_msgs | 里程计数据 |
+| MapMetaData | nav_msgs | 地图元数据 |
 | OccupancyGrid | nav_msgs | 占用栅格地图 |
 
 ### 基本操作

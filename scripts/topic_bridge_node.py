@@ -28,7 +28,7 @@ from datetime import datetime
 from std_msgs.msg import String, Int32, Float32, Bool
 from geometry_msgs.msg import Twist, Point, Quaternion
 from sensor_msgs.msg import LaserScan, Image
-from nav_msgs.msg import OccupancyGrid
+from nav_msgs.msg import OccupancyGrid, Odometry, MapMetaData
 
 # 配置日志
 logging.basicConfig(
@@ -56,6 +56,8 @@ class MessageTypeRegistry:
         'sensor_msgs/LaserScan': LaserScan,
         'sensor_msgs/Image': Image,
         'nav_msgs/OccupancyGrid': OccupancyGrid,
+        'nav_msgs/Odometry': Odometry,
+        'nav_msgs/MapMetaData': MapMetaData,
     }
     
     @classmethod
@@ -223,6 +225,59 @@ class ROSTopicManager:
                 msg.y = data.get('y', 0.0)
                 msg.z = data.get('z', 0.0)
             
+            # Odometry消息处理
+            elif msg_class == Odometry:
+                # 设置header
+                if 'header' in data:
+                    if 'frame_id' in data['header']:
+                        msg.header.frame_id = data['header']['frame_id']
+                    if 'stamp' in data['header']:
+                        msg.header.stamp = rospy.Time.from_sec(data['header']['stamp'])
+                
+                # 设置pose
+                if 'pose' in data and 'pose' in data['pose']:
+                    pose_data = data['pose']['pose']
+                    if 'position' in pose_data:
+                        msg.pose.pose.position.x = pose_data['position'].get('x', 0.0)
+                        msg.pose.pose.position.y = pose_data['position'].get('y', 0.0)
+                        msg.pose.pose.position.z = pose_data['position'].get('z', 0.0)
+                    if 'orientation' in pose_data:
+                        msg.pose.pose.orientation.x = pose_data['orientation'].get('x', 0.0)
+                        msg.pose.pose.orientation.y = pose_data['orientation'].get('y', 0.0)
+                        msg.pose.pose.orientation.z = pose_data['orientation'].get('z', 0.0)
+                        msg.pose.pose.orientation.w = pose_data['orientation'].get('w', 1.0)
+                
+                # 设置twist
+                if 'twist' in data and 'twist' in data['twist']:
+                    twist_data = data['twist']['twist']
+                    if 'linear' in twist_data:
+                        msg.twist.twist.linear.x = twist_data['linear'].get('x', 0.0)
+                        msg.twist.twist.linear.y = twist_data['linear'].get('y', 0.0)
+                        msg.twist.twist.linear.z = twist_data['linear'].get('z', 0.0)
+                    if 'angular' in twist_data:
+                        msg.twist.twist.angular.x = twist_data['angular'].get('x', 0.0)
+                        msg.twist.twist.angular.y = twist_data['angular'].get('y', 0.0)
+                        msg.twist.twist.angular.z = twist_data['angular'].get('z', 0.0)
+            
+            # MapMetaData消息处理
+            elif msg_class == MapMetaData:
+                msg.map_load_time = rospy.Time.from_sec(data.get('map_load_time', 0.0))
+                msg.resolution = data.get('resolution', 0.05)
+                msg.width = data.get('width', 0)
+                msg.height = data.get('height', 0)
+                
+                if 'origin' in data:
+                    origin_data = data['origin']
+                    if 'position' in origin_data:
+                        msg.origin.position.x = origin_data['position'].get('x', 0.0)
+                        msg.origin.position.y = origin_data['position'].get('y', 0.0)
+                        msg.origin.position.z = origin_data['position'].get('z', 0.0)
+                    if 'orientation' in origin_data:
+                        msg.origin.orientation.x = origin_data['orientation'].get('x', 0.0)
+                        msg.origin.orientation.y = origin_data['orientation'].get('y', 0.0)
+                        msg.origin.orientation.z = origin_data['orientation'].get('z', 0.0)
+                        msg.origin.orientation.w = origin_data['orientation'].get('w', 1.0)
+            
             # 其他复杂消息类型可以在这里扩展
             
             return msg
@@ -255,7 +310,7 @@ class WebSocketServer:
         """注册新的WebSocket客户端"""
         self.clients.add(websocket)
         client_info = f"{websocket.remote_address[0]}:{websocket.remote_address[1]}"
-        logger.info(f"新客户端连接: {client_info}")
+        logger.info(f"🔗 新客户端连接建立: {client_info} | 当前连接数: {len(self.clients)}")
         
         # 发送欢迎消息和支持的消息类型
         welcome_msg = {
@@ -265,26 +320,35 @@ class WebSocketServer:
             "timestamp": datetime.now().isoformat()
         }
         await self.send_to_client(websocket, welcome_msg)
+        logger.info(f"📤 已向客户端 {client_info} 发送欢迎消息")
     
     async def unregister_client(self, websocket: websockets.WebSocketServerProtocol):
         """注销WebSocket客户端"""
         if websocket in self.clients:
             self.clients.remove(websocket)
             client_info = f"{websocket.remote_address[0]}:{websocket.remote_address[1]}"
-            logger.info(f"客户端断开连接: {client_info}")
+            logger.info(f"🔌 客户端连接断开: {client_info} | 剩余连接数: {len(self.clients)}")
     
     async def send_to_client(self, websocket: websockets.WebSocketServerProtocol, message: dict):
         """向指定客户端发送消息"""
+        client_info = f"{websocket.remote_address[0]}:{websocket.remote_address[1]}"
+        msg_type = message.get("type", "unknown")
+        
         try:
             await websocket.send(json.dumps(message, ensure_ascii=False))
+            logger.info(f"📤 向客户端 {client_info} 发送消息: {msg_type}")
         except websockets.exceptions.ConnectionClosed:
+            logger.warning(f"📤 向客户端 {client_info} 发送消息失败: 连接已关闭")
             await self.unregister_client(websocket)
         except Exception as e:
-            logger.error(f"发送消息失败: {str(e)}")
+            logger.error(f"📤 向客户端 {client_info} 发送消息失败: {str(e)}")
     
     async def broadcast_message(self, message: dict):
         """向所有客户端广播消息"""
         if self.clients:
+            msg_type = message.get("type", "unknown")
+            logger.info(f"📢 向 {len(self.clients)} 个客户端广播消息: {msg_type}")
+            
             disconnected_clients = set()
             for client in self.clients:
                 try:
@@ -292,7 +356,8 @@ class WebSocketServer:
                 except websockets.exceptions.ConnectionClosed:
                     disconnected_clients.add(client)
                 except Exception as e:
-                    logger.error(f"广播消息失败: {str(e)}")
+                    client_info = f"{client.remote_address[0]}:{client.remote_address[1]}"
+                    logger.error(f"📢 向客户端 {client_info} 广播消息失败: {str(e)}")
                     disconnected_clients.add(client)
             
             # 清理断开的连接
@@ -315,13 +380,48 @@ class WebSocketServer:
                     "timestamp": datetime.now().isoformat()
                 }
                 
-                # 异步发送消息到所有客户端
-                asyncio.create_task(self.broadcast_message(ws_message))
+                # 线程安全地调度异步任务
+                self._schedule_broadcast(ws_message)
                 
             except Exception as e:
                 logger.error(f"处理ROS消息回调失败: {str(e)}")
         
         return callback
+    
+    def _schedule_broadcast(self, message: dict):
+        """线程安全地调度广播消息任务"""
+        try:
+            # 获取当前事件循环
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # 如果事件循环正在运行，使用call_soon_threadsafe
+                loop.call_soon_threadsafe(
+                    lambda: asyncio.create_task(self.broadcast_message(message))
+                )
+            else:
+                # 如果没有运行的事件循环，创建新的任务
+                asyncio.create_task(self.broadcast_message(message))
+        except RuntimeError:
+            # 如果没有事件循环，尝试在新线程中处理
+            try:
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(self._sync_broadcast, message)
+            except Exception as e:
+                logger.error(f"调度广播消息失败: {str(e)}")
+    
+    def _sync_broadcast(self, message: dict):
+        """同步方式广播消息（备用方案）"""
+        try:
+            # 创建新的事件循环来处理异步操作
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                loop.run_until_complete(self.broadcast_message(message))
+            finally:
+                loop.close()
+        except Exception as e:
+            logger.error(f"同步广播消息失败: {str(e)}")
     
     def _ros_msg_to_dict(self, msg) -> dict:
         """将ROS消息转换为字典格式"""
@@ -351,6 +451,65 @@ class WebSocketServer:
                 result['y'] = msg.y
                 result['z'] = msg.z
             
+            # 处理Odometry消息
+            elif type(msg).__name__ == 'Odometry':
+                result['header'] = {
+                    'frame_id': msg.header.frame_id,
+                    'stamp': msg.header.stamp.to_sec()
+                }
+                result['child_frame_id'] = msg.child_frame_id
+                result['pose'] = {
+                    'pose': {
+                        'position': {
+                            'x': msg.pose.pose.position.x,
+                            'y': msg.pose.pose.position.y,
+                            'z': msg.pose.pose.position.z
+                        },
+                        'orientation': {
+                            'x': msg.pose.pose.orientation.x,
+                            'y': msg.pose.pose.orientation.y,
+                            'z': msg.pose.pose.orientation.z,
+                            'w': msg.pose.pose.orientation.w
+                        }
+                    },
+                    'covariance': list(msg.pose.covariance)
+                }
+                result['twist'] = {
+                    'twist': {
+                        'linear': {
+                            'x': msg.twist.twist.linear.x,
+                            'y': msg.twist.twist.linear.y,
+                            'z': msg.twist.twist.linear.z
+                        },
+                        'angular': {
+                            'x': msg.twist.twist.angular.x,
+                            'y': msg.twist.twist.angular.y,
+                            'z': msg.twist.twist.angular.z
+                        }
+                    },
+                    'covariance': list(msg.twist.covariance)
+                }
+            
+            # 处理MapMetaData消息
+            elif type(msg).__name__ == 'MapMetaData':
+                result['map_load_time'] = msg.map_load_time.to_sec()
+                result['resolution'] = msg.resolution
+                result['width'] = msg.width
+                result['height'] = msg.height
+                result['origin'] = {
+                    'position': {
+                        'x': msg.origin.position.x,
+                        'y': msg.origin.position.y,
+                        'z': msg.origin.position.z
+                    },
+                    'orientation': {
+                        'x': msg.origin.orientation.x,
+                        'y': msg.origin.orientation.y,
+                        'z': msg.origin.orientation.z,
+                        'w': msg.origin.orientation.w
+                    }
+                }
+            
             # 处理其他复杂消息类型
             else:
                 # 通用处理：遍历消息的所有属性
@@ -370,9 +529,12 @@ class WebSocketServer:
     
     async def handle_client_message(self, websocket: websockets.WebSocketServerProtocol, message: str):
         """处理客户端消息"""
+        client_info = f"{websocket.remote_address[0]}:{websocket.remote_address[1]}"
+        
         try:
             data = json.loads(message)
             msg_type = data.get("type")
+            logger.info(f"📥 收到客户端 {client_info} 消息: {msg_type}")
             
             if msg_type == "subscribe":
                 await self.handle_subscribe(websocket, data)
@@ -388,9 +550,10 @@ class WebSocketServer:
                 await self.send_error(websocket, f"未知的消息类型: {msg_type}")
                 
         except json.JSONDecodeError:
+            logger.warning(f"📥 收到客户端 {client_info} 无效JSON消息")
             await self.send_error(websocket, "无效的JSON格式")
         except Exception as e:
-            logger.error(f"处理客户端消息失败: {str(e)}")
+            logger.error(f"❌ 处理客户端 {client_info} 消息失败: {str(e)}")
             await self.send_error(websocket, f"处理消息失败: {str(e)}")
     
     async def handle_subscribe(self, websocket: websockets.WebSocketServerProtocol, data: dict):
@@ -491,15 +654,16 @@ class WebSocketServer:
     
     async def client_handler(self, websocket: websockets.WebSocketServerProtocol, path: str):
         """WebSocket客户端处理器"""
+        client_info = f"{websocket.remote_address[0]}:{websocket.remote_address[1]}"
         await self.register_client(websocket)
         
         try:
             async for message in websocket:
                 await self.handle_client_message(websocket, message)
         except websockets.exceptions.ConnectionClosed:
-            logger.info("客户端连接正常关闭")
+            logger.info(f"🔌 客户端 {client_info} 连接正常关闭")
         except Exception as e:
-            logger.error(f"客户端处理异常: {str(e)}")
+            logger.error(f"❌ 客户端 {client_info} 处理异常: {str(e)}")
         finally:
             await self.unregister_client(websocket)
     

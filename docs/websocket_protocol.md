@@ -187,6 +187,8 @@
     "geometry_msgs/Quaternion",
     "sensor_msgs/LaserScan",
     "sensor_msgs/Image",
+    "nav_msgs/Odometry",
+    "nav_msgs/MapMetaData",
     "nav_msgs/OccupancyGrid"
   ],
   "timestamp": "2024-01-15T10:30:00.000Z"
@@ -336,6 +338,88 @@
 ```
 
 ### 导航消息类型 (nav_msgs)
+
+#### Odometry (里程计数据)
+```json
+{
+  "header": {
+    "seq": 1,
+    "stamp": {
+      "secs": 1642248600,
+      "nsecs": 0
+    },
+    "frame_id": "odom"
+  },
+  "child_frame_id": "base_link",
+  "pose": {
+    "pose": {
+      "position": {
+        "x": 1.0,
+        "y": 2.0,
+        "z": 0.0
+      },
+      "orientation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.707,
+        "w": 0.707
+      }
+    },
+    "covariance": [0.1, 0.0, 0.0, 0.0, 0.0, 0.0,
+                   0.0, 0.1, 0.0, 0.0, 0.0, 0.0,
+                   0.0, 0.0, 0.1, 0.0, 0.0, 0.0,
+                   0.0, 0.0, 0.0, 0.1, 0.0, 0.0,
+                   0.0, 0.0, 0.0, 0.0, 0.1, 0.0,
+                   0.0, 0.0, 0.0, 0.0, 0.0, 0.1]
+  },
+  "twist": {
+    "twist": {
+      "linear": {
+        "x": 0.5,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "angular": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.2
+      }
+    },
+    "covariance": [0.1, 0.0, 0.0, 0.0, 0.0, 0.0,
+                   0.0, 0.1, 0.0, 0.0, 0.0, 0.0,
+                   0.0, 0.0, 0.1, 0.0, 0.0, 0.0,
+                   0.0, 0.0, 0.0, 0.1, 0.0, 0.0,
+                   0.0, 0.0, 0.0, 0.0, 0.1, 0.0,
+                   0.0, 0.0, 0.0, 0.0, 0.0, 0.1]
+  }
+}
+```
+
+#### MapMetaData (地图元数据)
+```json
+{
+  "map_load_time": {
+    "secs": 1642248600,
+    "nsecs": 0
+  },
+  "resolution": 0.05,
+  "width": 100,
+  "height": 100,
+  "origin": {
+    "position": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "orientation": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0,
+      "w": 1.0
+    }
+  }
+}
+```
 
 #### OccupancyGrid (占用栅格地图)
 ```json
