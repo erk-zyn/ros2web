@@ -161,7 +161,8 @@
     "std_msgs/String",
     "std_msgs/Int32",
     "geometry_msgs/Twist",
-    "sensor_msgs/LaserScan"
+    "sensor_msgs/LaserScan",
+    "nav_msgs/Path"
   ],
   "timestamp": "2024-01-15T10:30:00.000Z"
 }
@@ -185,11 +186,15 @@
     "geometry_msgs/Twist",
     "geometry_msgs/Point",
     "geometry_msgs/Quaternion",
+    "geometry_msgs/PoseStamped",
+    "geometry_msgs/PoseWithCovarianceStamped",
+    "geometry_msgs/PoseArray",
     "sensor_msgs/LaserScan",
     "sensor_msgs/Image",
     "nav_msgs/Odometry",
     "nav_msgs/MapMetaData",
-    "nav_msgs/OccupancyGrid"
+    "nav_msgs/OccupancyGrid",
+    "nav_msgs/Path"
   ],
   "timestamp": "2024-01-15T10:30:00.000Z"
 }
@@ -309,6 +314,71 @@
   "y": 0.0,
   "z": 0.0,
   "w": 1.0
+}
+```
+
+#### PoseStamped (带时间戳的位姿)
+```json
+{
+  "header": {
+    "frame_id": "map",
+    "stamp": 1642248600.0
+  },
+  "pose": {
+    "position": {
+      "x": 1.0,
+      "y": 2.0,
+      "z": 0.0
+    },
+    "orientation": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.707,
+      "w": 0.707
+    }
+  }
+}
+```
+
+#### PoseWithCovarianceStamped (带协方差的位姿)
+```json
+{
+  "header": {
+    "frame_id": "map",
+    "stamp": 1642248600.0
+  },
+  "pose": {
+    "pose": {
+      "position": { "x": 1.0, "y": 2.0, "z": 0.0 },
+      "orientation": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 1.0 }
+    },
+    "covariance": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  }
+}
+```
+
+#### PoseArray (位姿数组)
+```json
+{
+  "header": {
+    "frame_id": "map",
+    "stamp": 1642248600.0
+  },
+  "poses": [
+    {
+      "position": { "x": 1.0, "y": 2.0, "z": 0.0 },
+      "orientation": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 1.0 }
+    },
+    {
+      "position": { "x": 1.2, "y": 1.8, "z": 0.0 },
+      "orientation": { "x": 0.0, "y": 0.0, "z": 0.1, "w": 0.99 }
+    }
+  ]
 }
 ```
 
@@ -455,6 +525,34 @@
     }
   },
   "data": [0, 0, 0, 100, -1]
+}
+```
+
+#### Path (路径)
+```json
+{
+  "header": {
+    "frame_id": "map",
+    "stamp": 1642248600.0
+  },
+  "poses": [
+    {
+      "header": {
+        "frame_id": "map",
+        "stamp": 1642248600.1
+      },
+      "pose": {
+        "position": { "x": 1.0, "y": 2.0, "z": 0.0 },
+        "orientation": { "x": 0.0, "y": 0.0, "z": 0.707, "w": 0.707 }
+      }
+    },
+    {
+      "pose": {
+        "position": { "x": 1.5, "y": 2.5, "z": 0.0 },
+        "orientation": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 1.0 }
+      }
+    }
+  ]
 }
 ```
 

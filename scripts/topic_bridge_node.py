@@ -26,9 +26,9 @@ import logging
 from typing import Dict, Set, Any, Optional
 from datetime import datetime
 from std_msgs.msg import String, Int32, Float32, Bool
-from geometry_msgs.msg import Twist, Point, Quaternion
+from geometry_msgs.msg import Twist, Point, Quaternion, Pose, PoseStamped, PoseWithCovarianceStamped, PoseArray
 from sensor_msgs.msg import LaserScan, Image
-from nav_msgs.msg import OccupancyGrid, Odometry, MapMetaData
+from nav_msgs.msg import OccupancyGrid, Odometry, MapMetaData, Path
 
 # 配置日志
 logging.basicConfig(
@@ -53,11 +53,15 @@ class MessageTypeRegistry:
         'geometry_msgs/Twist': Twist,
         'geometry_msgs/Point': Point,
         'geometry_msgs/Quaternion': Quaternion,
+        'geometry_msgs/PoseStamped': PoseStamped,
+        'geometry_msgs/PoseWithCovarianceStamped': PoseWithCovarianceStamped,
+        'geometry_msgs/PoseArray': PoseArray,
         'sensor_msgs/LaserScan': LaserScan,
         'sensor_msgs/Image': Image,
         'nav_msgs/OccupancyGrid': OccupancyGrid,
         'nav_msgs/Odometry': Odometry,
         'nav_msgs/MapMetaData': MapMetaData,
+        'nav_msgs/Path': Path,
     }
     
     @classmethod
@@ -203,13 +207,10 @@ class ROSTopicManager:
         """根据数据字典创建ROS消息对象"""
         try:
             msg = msg_class()
-            
-            # 简单消息类型处理
-            if hasattr(msg, 'data'):
-                msg.data = data.get('data', '')
+
             
             # Twist消息处理
-            elif msg_class == Twist:
+            if msg_class == Twist:
                 if 'linear' in data:
                     msg.linear.x = data['linear'].get('x', 0.0)
                     msg.linear.y = data['linear'].get('y', 0.0)
@@ -224,6 +225,136 @@ class ROSTopicManager:
                 msg.x = data.get('x', 0.0)
                 msg.y = data.get('y', 0.0)
                 msg.z = data.get('z', 0.0)
+            
+            # PoseStamped消息处理
+            elif msg_class == PoseStamped:
+                # 设置header
+                if 'header' in data:
+                    if 'frame_id' in data['header']:
+                        msg.header.frame_id = data['header']['frame_id']
+                    if 'stamp' in data['header']:
+                        msg.header.stamp = rospy.Time.from_sec(data['header']['stamp'])
+                
+                # 设置pose
+                if 'pose' in data:
+                    pose_data = data['pose']
+                    if 'position' in pose_data:
+                        msg.pose.position.x = pose_data['position'].get('x', 0.0)
+                        msg.pose.position.y = pose_data['position'].get('y', 0.0)
+                        msg.pose.position.z = pose_data['position'].get('z', 0.0)
+                    if 'orientation' in pose_data:
+                        msg.pose.orientation.x = pose_data['orientation'].get('x', 0.0)
+                        msg.pose.orientation.y = pose_data['orientation'].get('y', 0.0)
+                        msg.pose.orientation.z = pose_data['orientation'].get('z', 0.0)
+                        msg.pose.orientation.w = pose_data['orientation'].get('w', 1.0)
+            
+            # PoseWithCovarianceStamped消息处理
+            elif msg_class == PoseWithCovarianceStamped:
+                # 设置header
+                if 'header' in data:
+                    header = data['header']
+                    if 'frame_id' in header:
+                        msg.header.frame_id = header['frame_id']
+                    if 'stamp' in header:
+                        stamp = header['stamp']
+                        if isinstance(stamp, dict) and 'secs' in stamp:
+                            msg.header.stamp = rospy.Time(secs=stamp.get('secs', 0), nsecs=stamp.get('nsecs', 0))
+                        else:
+                            msg.header.stamp = rospy.Time.from_sec(float(stamp))
+                # 设置pose.pose
+                if 'pose' in data and 'pose' in data['pose']:
+                    pose_data = data['pose']['pose']
+                    if 'position' in pose_data:
+                        msg.pose.pose.position.x = pose_data['position'].get('x', 0.0)
+                        msg.pose.pose.position.y = pose_data['position'].get('y', 0.0)
+                        msg.pose.pose.position.z = pose_data['position'].get('z', 0.0)
+                    if 'orientation' in pose_data:
+                        msg.pose.pose.orientation.x = pose_data['orientation'].get('x', 0.0)
+                        msg.pose.pose.orientation.y = pose_data['orientation'].get('y', 0.0)
+                        msg.pose.pose.orientation.z = pose_data['orientation'].get('z', 0.0)
+                        msg.pose.pose.orientation.w = pose_data['orientation'].get('w', 1.0)
+                # 设置pose.covariance
+                if 'pose' in data and 'covariance' in data['pose']:
+                    cov = data['pose']['covariance']
+                    if isinstance(cov, (list, tuple)):
+                        msg.pose.covariance = list(cov)
+            
+            # PoseArray消息处理
+            elif msg_class == PoseArray:
+                # 设置header
+                if 'header' in data:
+                    header = data['header']
+                    if 'frame_id' in header:
+                        msg.header.frame_id = header['frame_id']
+                    if 'stamp' in header:
+                        stamp = header['stamp']
+                        if isinstance(stamp, dict) and 'secs' in stamp:
+                            msg.header.stamp = rospy.Time(secs=stamp.get('secs', 0), nsecs=stamp.get('nsecs', 0))
+                        else:
+                            msg.header.stamp = rospy.Time.from_sec(float(stamp))
+                # 设置poses
+                if 'poses' in data and isinstance(data['poses'], (list, tuple)):
+                    msg.poses = []
+                    for p in data['poses']:
+                        pose_msg = Pose()
+                        # position
+                        pos = p.get('position', {})
+                        pose_msg.position.x = pos.get('x', 0.0)
+                        pose_msg.position.y = pos.get('y', 0.0)
+                        pose_msg.position.z = pos.get('z', 0.0)
+                        # orientation
+                        ori = p.get('orientation', {})
+                        pose_msg.orientation.x = ori.get('x', 0.0)
+                        pose_msg.orientation.y = ori.get('y', 0.0)
+                        pose_msg.orientation.z = ori.get('z', 0.0)
+                        pose_msg.orientation.w = ori.get('w', 1.0)
+                        msg.poses.append(pose_msg)
+            
+            # Path消息处理
+            elif msg_class == Path:
+                # 设置header
+                if 'header' in data:
+                    header = data['header']
+                    if 'frame_id' in header:
+                        msg.header.frame_id = header['frame_id']
+                    if 'stamp' in header:
+                        stamp = header['stamp']
+                        if isinstance(stamp, dict) and 'secs' in stamp:
+                            msg.header.stamp = rospy.Time(secs=stamp.get('secs', 0), nsecs=stamp.get('nsecs', 0))
+                        else:
+                            msg.header.stamp = rospy.Time.from_sec(float(stamp))
+                # 设置poses (PoseStamped 列表)
+                if 'poses' in data and isinstance(data['poses'], (list, tuple)):
+                    msg.poses = []
+                    for p in data['poses']:
+                        ps = PoseStamped()
+                        # 每个元素可有 header 覆盖
+                        if 'header' in p:
+                            ph = p['header']
+                            if 'frame_id' in ph:
+                                ps.header.frame_id = ph['frame_id']
+                            if 'stamp' in ph:
+                                pstamp = ph['stamp']
+                                if isinstance(pstamp, dict) and 'secs' in pstamp:
+                                    ps.header.stamp = rospy.Time(secs=pstamp.get('secs', 0), nsecs=pstamp.get('nsecs', 0))
+                                else:
+                                    ps.header.stamp = rospy.Time.from_sec(float(pstamp))
+                        else:
+                            # 没有单独header时沿用Path的frame_id
+                            ps.header.frame_id = msg.header.frame_id
+                            # stamp可不设置
+                        # 解析 pose
+                        pose_data = p.get('pose', p)
+                        if 'position' in pose_data:
+                            ps.pose.position.x = pose_data['position'].get('x', 0.0)
+                            ps.pose.position.y = pose_data['position'].get('y', 0.0)
+                            ps.pose.position.z = pose_data['position'].get('z', 0.0)
+                        if 'orientation' in pose_data:
+                            ps.pose.orientation.x = pose_data['orientation'].get('x', 0.0)
+                            ps.pose.orientation.y = pose_data['orientation'].get('y', 0.0)
+                            ps.pose.orientation.z = pose_data['orientation'].get('z', 0.0)
+                            ps.pose.orientation.w = pose_data['orientation'].get('w', 1.0)
+                        msg.poses.append(ps)
             
             # Odometry消息处理
             elif msg_class == Odometry:
@@ -278,6 +409,52 @@ class ROSTopicManager:
                         msg.origin.orientation.z = origin_data['orientation'].get('z', 0.0)
                         msg.origin.orientation.w = origin_data['orientation'].get('w', 1.0)
             
+            # OccupancyGrid消息处理
+            elif msg_class == OccupancyGrid:
+                # 设置header
+                if 'header' in data:
+                    header = data['header']
+                    if 'frame_id' in header:
+                        msg.header.frame_id = header['frame_id']
+                    if 'stamp' in header:
+                        stamp = header['stamp']
+                        if isinstance(stamp, dict) and 'secs' in stamp:
+                            msg.header.stamp = rospy.Time(secs=stamp.get('secs', 0), nsecs=stamp.get('nsecs', 0))
+                        else:
+                            msg.header.stamp = rospy.Time.from_sec(float(stamp))
+                # 设置info
+                if 'info' in data:
+                    info_data = data['info']
+                    if 'map_load_time' in info_data:
+                        mlt = info_data['map_load_time']
+                        if isinstance(mlt, dict) and 'secs' in mlt:
+                            msg.info.map_load_time = rospy.Time(secs=mlt.get('secs', 0), nsecs=mlt.get('nsecs', 0))
+                        else:
+                            msg.info.map_load_time = rospy.Time.from_sec(float(mlt))
+                    msg.info.resolution = info_data.get('resolution', msg.info.resolution)
+                    msg.info.width = info_data.get('width', msg.info.width)
+                    msg.info.height = info_data.get('height', msg.info.height)
+                    if 'origin' in info_data:
+                        origin_data = info_data['origin']
+                        if 'position' in origin_data:
+                            pos = origin_data['position']
+                            msg.info.origin.position.x = pos.get('x', msg.info.origin.position.x)
+                            msg.info.origin.position.y = pos.get('y', msg.info.origin.position.y)
+                            msg.info.origin.position.z = pos.get('z', msg.info.origin.position.z)
+                        if 'orientation' in origin_data:
+                            ori = origin_data['orientation']
+                            msg.info.origin.orientation.x = ori.get('x', msg.info.origin.orientation.x)
+                            msg.info.origin.orientation.y = ori.get('y', msg.info.origin.orientation.y)
+                            msg.info.origin.orientation.z = ori.get('z', msg.info.origin.orientation.z)
+                            msg.info.origin.orientation.w = ori.get('w', msg.info.origin.orientation.w)
+                # 设置data
+                if 'data' in data:
+                    msg.data = list(data['data'])
+                        
+            # 简单消息类型处理
+            elif hasattr(msg, 'data'):
+                msg.data = data.get('data', '')
+            
             # 其他复杂消息类型可以在这里扩展
             
             return msg
@@ -305,6 +482,7 @@ class WebSocketServer:
         self.ros_manager = ROSTopicManager()
         self.heartbeat_interval = 30  # 心跳间隔（秒）
         self.server = None
+        self.loop: Optional[asyncio.AbstractEventLoop] = None
         
     async def register_client(self, websocket: websockets.WebSocketServerProtocol):
         """注册新的WebSocket客户端"""
@@ -381,7 +559,7 @@ class WebSocketServer:
                 }
                 
                 # 线程安全地调度异步任务
-                self._schedule_broadcast(ws_message)
+                self._schedule_broadcast_safe(ws_message)
                 
             except Exception as e:
                 logger.error(f"处理ROS消息回调失败: {str(e)}")
@@ -409,6 +587,16 @@ class WebSocketServer:
                     future = executor.submit(self._sync_broadcast, message)
             except Exception as e:
                 logger.error(f"调度广播消息失败: {str(e)}")
+
+    def _schedule_broadcast_safe(self, message: dict):
+        """基于服务器事件循环的线程安全广播调度"""
+        try:
+            if self.loop and self.loop.is_running():
+                asyncio.run_coroutine_threadsafe(self.broadcast_message(message), self.loop)
+            else:
+                logger.warning("服务器事件循环未就绪，暂无法广播消息")
+        except Exception as e:
+            logger.error(f"调度广播消息失败: {str(e)}")
     
     def _sync_broadcast(self, message: dict):
         """同步方式广播消息（备用方案）"""
@@ -428,12 +616,10 @@ class WebSocketServer:
         try:
             result = {}
             
-            # 处理简单数据类型
-            if hasattr(msg, 'data'):
-                result['data'] = msg.data
+
             
             # 处理Twist消息
-            elif hasattr(msg, 'linear') and hasattr(msg, 'angular'):
+            if hasattr(msg, 'linear') and hasattr(msg, 'angular'):
                 result['linear'] = {
                     'x': msg.linear.x,
                     'y': msg.linear.y,
@@ -450,6 +636,99 @@ class WebSocketServer:
                 result['x'] = msg.x
                 result['y'] = msg.y
                 result['z'] = msg.z
+            
+            # 处理PoseStamped消息
+            elif type(msg).__name__ == 'PoseStamped':
+                result['header'] = {
+                    'frame_id': msg.header.frame_id,
+                    'stamp': msg.header.stamp.to_sec()
+                }
+                result['pose'] = {
+                    'position': {
+                        'x': msg.pose.position.x,
+                        'y': msg.pose.position.y,
+                        'z': msg.pose.position.z
+                    },
+                    'orientation': {
+                        'x': msg.pose.orientation.x,
+                        'y': msg.pose.orientation.y,
+                        'z': msg.pose.orientation.z,
+                        'w': msg.pose.orientation.w
+                    }
+                }
+            
+            # 处理PoseWithCovarianceStamped消息
+            elif type(msg).__name__ == 'PoseWithCovarianceStamped':
+                result['header'] = {
+                    'frame_id': msg.header.frame_id,
+                    'stamp': msg.header.stamp.to_sec()
+                }
+                result['pose'] = {
+                    'pose': {
+                        'position': {
+                            'x': msg.pose.pose.position.x,
+                            'y': msg.pose.pose.position.y,
+                            'z': msg.pose.pose.position.z
+                        },
+                        'orientation': {
+                            'x': msg.pose.pose.orientation.x,
+                            'y': msg.pose.pose.orientation.y,
+                            'z': msg.pose.pose.orientation.z,
+                            'w': msg.pose.pose.orientation.w
+                        }
+                    },
+                    'covariance': list(msg.pose.covariance)
+                }
+            
+            # 处理PoseArray消息
+            elif type(msg).__name__ == 'PoseArray':
+                result['header'] = {
+                    'frame_id': msg.header.frame_id,
+                    'stamp': msg.header.stamp.to_sec()
+                }
+                result['poses'] = []
+                for p in msg.poses:
+                    result['poses'].append({
+                        'position': {
+                            'x': p.position.x,
+                            'y': p.position.y,
+                            'z': p.position.z
+                        },
+                        'orientation': {
+                            'x': p.orientation.x,
+                            'y': p.orientation.y,
+                            'z': p.orientation.z,
+                            'w': p.orientation.w
+                        }
+                    })
+            
+            # 处理Path消息
+            elif type(msg).__name__ == 'Path':
+                result['header'] = {
+                    'frame_id': msg.header.frame_id,
+                    'stamp': msg.header.stamp.to_sec()
+                }
+                result['poses'] = []
+                for ps in msg.poses:
+                    result['poses'].append({
+                        'header': {
+                            'frame_id': ps.header.frame_id,
+                            'stamp': ps.header.stamp.to_sec()
+                        },
+                        'pose': {
+                            'position': {
+                                'x': ps.pose.position.x,
+                                'y': ps.pose.position.y,
+                                'z': ps.pose.position.z
+                            },
+                            'orientation': {
+                                'x': ps.pose.orientation.x,
+                                'y': ps.pose.orientation.y,
+                                'z': ps.pose.orientation.z,
+                                'w': ps.pose.orientation.w
+                            }
+                        }
+                    })
             
             # 处理Odometry消息
             elif type(msg).__name__ == 'Odometry':
@@ -510,6 +789,34 @@ class WebSocketServer:
                     }
                 }
             
+            # 处理OccupancyGrid消息
+            elif type(msg).__name__ == 'OccupancyGrid':
+                result['header'] = {
+                    'frame_id': msg.header.frame_id,
+                    'stamp': msg.header.stamp.to_sec()
+                }
+                result['info'] = {
+                    'map_load_time': msg.info.map_load_time.to_sec(),
+                    'resolution': msg.info.resolution,
+                    'width': msg.info.width,
+                    'height': msg.info.height,
+                    'origin': {
+                        'position': {
+                            'x': msg.info.origin.position.x,
+                            'y': msg.info.origin.position.y,
+                            'z': msg.info.origin.position.z
+                        },
+                        'orientation': {
+                            'x': msg.info.origin.orientation.x,
+                            'y': msg.info.origin.orientation.y,
+                            'z': msg.info.origin.orientation.z,
+                            'w': msg.info.origin.orientation.w
+                        }
+                    }
+                }
+                result['data'] = list(msg.data)
+            elif hasattr(msg, 'data'):
+                result['data'] = msg.data
             # 处理其他复杂消息类型
             else:
                 # 通用处理：遍历消息的所有属性
@@ -520,7 +827,9 @@ class WebSocketServer:
                         result[slot] = self._ros_msg_to_dict(attr_value)
                     else:
                         result[slot] = attr_value
-            
+                        # 处理简单数据类型
+
+
             return result
             
         except Exception as e:
@@ -566,6 +875,12 @@ class WebSocketServer:
             return
         
         callback = self.ros_message_callback(topic_name)
+
+        # 若重复订阅 /map 或 OccupancyGrid，为获取最近的 latched 消息，先取消后重新订阅
+        if topic_name in self.ros_manager.subscribers and (topic_name == "/map" or msg_type == "nav_msgs/OccupancyGrid"):
+            logger.info(f"检测到重复订阅 {topic_name}，将执行取消并重新订阅以获取历史地图")
+            self.ros_manager.unsubscribe_topic(topic_name)
+
         success = self.ros_manager.subscribe_topic(topic_name, msg_type, callback)
         
         response = {
@@ -670,6 +985,7 @@ class WebSocketServer:
     async def start_server(self):
         """启动WebSocket服务器"""
         try:
+            self.loop = asyncio.get_running_loop()
             self.server = await websockets.serve(
                 self.client_handler,
                 self.host,
@@ -680,7 +996,7 @@ class WebSocketServer:
             logger.info(f"WebSocket服务器启动成功: ws://{self.host}:{self.port}")
             
             # 启动心跳检测任务
-            asyncio.create_task(self.heartbeat_task())
+            self._heartbeat_task = asyncio.create_task(self.heartbeat_task())
             
             # 保持服务器运行
             await self.server.wait_closed()
@@ -707,10 +1023,30 @@ class WebSocketServer:
     
     async def stop_server(self):
         """停止WebSocket服务器"""
-        if self.server:
-            self.server.close()
-            await self.server.wait_closed()
-            logger.info("WebSocket服务器已停止")
+        try:
+            # 取消心跳任务
+            if hasattr(self, '_heartbeat_task') and self._heartbeat_task:
+                self._heartbeat_task.cancel()
+                try:
+                    await self._heartbeat_task
+                except asyncio.CancelledError:
+                    logger.debug("心跳任务已取消")
+
+            # 关闭所有客户端连接
+            for ws in list(self.clients):
+                try:
+                    await ws.close()
+                except Exception as e:
+                    logger.warning(f"关闭客户端连接失败: {str(e)}")
+            self.clients.clear()
+
+            # 停止WebSocket服务器
+            if self.server:
+                self.server.close()
+                await self.server.wait_closed()
+                logger.info("WebSocket服务器已停止")
+        except Exception as e:
+            logger.error(f"停止WebSocket服务器失败: {str(e)}")
 
 
 class TopicBridgeNode:
@@ -781,8 +1117,20 @@ class TopicBridgeNode:
         """关闭节点和所有服务"""
         try:
             if self.ws_server:
-                # 停止WebSocket服务器
-                asyncio.run(self.ws_server.stop_server())
+                # 将停止操作调度到服务器事件循环
+                if self.ws_server.loop and self.ws_server.loop.is_running():
+                    future = asyncio.run_coroutine_threadsafe(self.ws_server.stop_server(), self.ws_server.loop)
+                    try:
+                        future.result(timeout=5)
+                    except Exception as e:
+                        logger.warning(f"等待WebSocket服务器停止时异常: {str(e)}")
+                else:
+                    # 回退到直接运行
+                    asyncio.run(self.ws_server.stop_server())
+
+            # 等待服务器线程退出
+            if self.server_thread and self.server_thread.is_alive():
+                self.server_thread.join(timeout=5)
             
             logger.info("话题桥接节点已完全关闭")
             

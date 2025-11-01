@@ -282,6 +282,12 @@ class ROSWebSocketClient:
             logger.info("=== 演示功能 2: 订阅话题 ===")
             await self.subscribe_topic("/cmd_vel", "geometry_msgs/Twist")
             await self.subscribe_topic("/chatter", "std_msgs/String")
+            await self.subscribe_topic("/map", "nav_msgs/OccupancyGrid")
+            # 订阅AMCL相关话题
+            await self.subscribe_topic("/amcl_pose", "geometry_msgs/PoseWithCovarianceStamped")
+            await self.subscribe_topic("/amcl_particlecloud", "geometry_msgs/PoseArray")
+            # 订阅 GlobalPlanner 规划路径
+            await self.subscribe_topic("/move_base/GlobalPlanner/plan", "nav_msgs/Path")
             await asyncio.sleep(2)
             
             # 3. 发布消息
@@ -303,6 +309,60 @@ class ROSWebSocketClient:
             # 发布Point消息
             point_data = {"x": 1.0, "y": 2.0, "z": 3.0}
             await self.publish_message("/target_point", "geometry_msgs/Point", point_data)
+            await asyncio.sleep(2)
+            
+            # 发布OccupancyGrid消息
+            grid_width = 10
+            grid_height = 10
+            grid_data = []
+            for y in range(grid_height):
+                for x in range(grid_width):
+                    val = 0
+                    if x == y or x + y == grid_width - 1:
+                        val = 100
+                    grid_data.append(val)
+            
+            occupancy_grid_data = {
+                "header": {"frame_id": "map", "stamp": datetime.now().timestamp()},
+                "info": {
+                    "map_load_time": datetime.now().timestamp(),
+                    "resolution": 0.05,
+                    "width": grid_width,
+                    "height": grid_height,
+                    "origin": {
+                        "position": {"x": 0.0, "y": 0.0, "z": 0.0},
+                        "orientation": {"x": 0.0, "y": 0.0, "z": 0.0, "w": 1.0}
+                    }
+                },
+                "data": grid_data
+            }
+            await self.publish_message("/map", "nav_msgs/OccupancyGrid", occupancy_grid_data)
+            await asyncio.sleep(2)
+            
+            # 发布初始位姿（AMCL初始化）
+            initial_pose_data = {
+                "header": {"frame_id": "map", "stamp": datetime.now().timestamp()},
+                "pose": {
+                    "pose": {
+                        "position": {"x": 1.0, "y": 2.0, "z": 0.0},
+                        "orientation": {"x": 0.0, "y": 0.0, "z": 0.0, "w": 1.0}
+                    },
+                    "covariance": [0.0] * 36
+                }
+            }
+            await self.publish_message("/initialpose", "geometry_msgs/PoseWithCovarianceStamped", initial_pose_data)
+            await asyncio.sleep(2)
+            
+            # 发布AMCL粒子云（PoseArray）
+            pose_array_data = {
+                "header": {"frame_id": "map", "stamp": datetime.now().timestamp()},
+                "poses": [
+                    {"position": {"x": 1.0, "y": 2.0, "z": 0.0}, "orientation": {"x": 0.0, "y": 0.0, "z": 0.0, "w": 1.0}},
+                    {"position": {"x": 1.2, "y": 1.8, "z": 0.0}, "orientation": {"x": 0.0, "y": 0.0, "z": 0.1, "w": 0.99}},
+                    {"position": {"x": 0.8, "y": 2.2, "z": 0.0}, "orientation": {"x": 0.0, "y": 0.0, "z": -0.1, "w": 0.99}}
+                ]
+            }
+            await self.publish_message("/amcl_particlecloud", "geometry_msgs/PoseArray", pose_array_data)
             await asyncio.sleep(2)
             
             # 4. 连续发布消息（模拟控制循环）

@@ -133,11 +133,15 @@ ws.onmessage = function(event) {
 | Twist | geometry_msgs | 速度控制 |
 | Point | geometry_msgs | 三维点坐标 |
 | Quaternion | geometry_msgs | 四元数 |
+| PoseStamped | geometry_msgs | 带时间戳的位姿 |
+| PoseWithCovarianceStamped | geometry_msgs | 带协方差的位姿 |
+| PoseArray | geometry_msgs | 位姿数组 |
 | LaserScan | sensor_msgs | 激光雷达数据 |
 | Image | sensor_msgs | 图像数据 |
 | Odometry | nav_msgs | 里程计数据 |
 | MapMetaData | nav_msgs | 地图元数据 |
 | OccupancyGrid | nav_msgs | 占用栅格地图 |
+| Path | nav_msgs | 路径（GlobalPlanner 规划结果） |
 
 ### 基本操作
 

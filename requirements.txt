@@ -1,5 +1,5 @@
 websockets>=10.4
-asyncio>=3.4.3
+
 rospy>=1.15.0
 std_msgs>=0.5.13
 geometry_msgs>=1.13.2
